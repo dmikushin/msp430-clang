@@ -6772,11 +6772,6 @@ void MSP430TargetCodeGenInfo::setTargetAttributes(
 
       // Step 2: Add attributes goodness.
       F->addFnAttr(llvm::Attribute::NoInline);
-
-      // Step 3: Emit ISR vector alias.
-      unsigned Num = attr->getNumber() / 2;
-      llvm::GlobalAlias::create(llvm::Function::ExternalLinkage,
-                                "__isr_" + Twine(Num), F);
     }
   }
 }
