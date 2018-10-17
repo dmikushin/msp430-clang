@@ -31,13 +31,83 @@ static bool isSupportedMCU(const StringRef MCU) {
       .Default(false);
 }
 
+static StringRef getSupportedHWMult(const StringRef MCU) {
+  return llvm::StringSwitch<StringRef>(MCU)
+#define MSP430_MCU_FEAT(NAME, HWMULT) .Case(NAME, HWMULT)
+#include "clang/Basic/MSP430Target.def"
+      .Default("none");
+}
+
+static StringRef getHWMultLib(const ArgList &Args) {
+  const Arg *HWMultArg = Args.getLastArg(options::OPT_mhwmult_EQ);
+  const Arg *MCUArg = Args.getLastArg(options::OPT_mmcu_EQ);
+  StringRef HWMult;
+  if (!HWMultArg || StringRef(HWMultArg->getValue()) == "auto")
+    HWMult = MCUArg ? getSupportedHWMult(MCUArg->getValue()) : "none";
+  else
+    HWMult = HWMultArg->getValue();
+  return llvm::StringSwitch<StringRef>(HWMult)
+      .Case("16bit", "-lmul_16")
+      .Case("32bit", "-lmul_32")
+      .Case("f5series", "-lmul_f5")
+      .Default("-lmul_none");
+}
+
+static void handleHWMultFeature(const Driver &D, const ArgList &Args,
+                                std::vector<StringRef> &Features) {
+  const Arg *MCUArg = Args.getLastArg(options::OPT_mmcu_EQ);
+  const Arg *HWMultArg = Args.getLastArg(options::OPT_mhwmult_EQ);
+  if (!MCUArg && !HWMultArg)
+    return;
+
+  StringRef HWMult = HWMultArg ? HWMultArg->getValue() : "auto";
+  StringRef MCUHWMult =
+      MCUArg ? getSupportedHWMult(MCUArg->getValue()) : "none";
+
+  if (HWMult == "auto") {
+    // 'auto' - deduce hw multiplier support based on mcu name provided.
+    // If no mcu name is provided, assume no hw multiplier is supported.
+    if (!MCUArg)
+      D.Diag(clang::diag::warn_drv_msp430_hwmult_no_device);
+    HWMult = MCUHWMult;
+  }
+
+  if (HWMult == "none") {
+    // 'none' - disable hw multiplier.
+    Features.push_back("-hwmult16");
+    Features.push_back("-hwmult32");
+    Features.push_back("-hwmultf5");
+    return;
+  }
+
+  if (MCUArg && MCUHWMult == "none")
+    D.Diag(clang::diag::warn_drv_msp430_hwmult_unsupported) << HWMult;
+  if (MCUArg && HWMult != MCUHWMult)
+    D.Diag(clang::diag::warn_drv_msp430_hwmult_mismatch) << MCUHWMult << HWMult;
+
+  if (HWMult == "16bit") {
+    // '16bit' - for 16-bit only hw multiplier.
+    Features.push_back("+hwmult16");
+  } else if (HWMult == "32bit") {
+    // '32bit' - for 16/32-bit hw multiplier.
+    Features.push_back("+hwmult32");
+  } else if (HWMult == "f5series") {
+    // 'f5series' - for 16/32-bit hw multiplier supported by F5 series mcus.
+    Features.push_back("+hwmultf5");
+  } else {
+    D.Diag(clang::diag::err_drv_unsupported_option_argument)
+        << HWMultArg->getAsString(Args) << HWMult;
+  }
+}
+
 void msp430::getMSP430TargetFeatures(const Driver &D, const ArgList &Args,
                                      std::vector<StringRef> &Features) {
   const Arg *MCUArg = Args.getLastArg(options::OPT_mmcu_EQ);
   if (MCUArg && !isSupportedMCU(MCUArg->getValue())) {
-    D.Diag(diag::err_drv_msp430_unknown_mcu) << MCUArg->getValue();
+    D.Diag(diag::err_drv_clang_unsupported) << MCUArg->getValue();
     return;
   }
+  handleHWMultFeature(D, Args, Features);
 }
 
 /// MSP430 Toolchain
@@ -106,7 +176,6 @@ std::string MSP430ToolChain::computeSysRoot() const {
   return SysRootDir;
 }
 
-
 void msp430::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                   const InputInfo &Output,
                                   const InputInfoList &Inputs,
@@ -139,6 +208,7 @@ void msp430::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   AddLinkerInputs(getToolChain(), Inputs, Args, CmdArgs, JA);
 
   CmdArgs.push_back("--start-group");
+  CmdArgs.push_back(Args.MakeArgString(getHWMultLib(Args)));
   CmdArgs.push_back("-lgcc");
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
     CmdArgs.push_back("-lc");

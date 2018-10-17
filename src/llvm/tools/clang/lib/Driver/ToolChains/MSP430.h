@@ -23,7 +23,6 @@
 
 namespace clang {
 namespace driver {
-
 namespace toolchains {
 
 class LLVM_LIBRARY_VISIBILITY MSP430ToolChain : public Generic_ELF {

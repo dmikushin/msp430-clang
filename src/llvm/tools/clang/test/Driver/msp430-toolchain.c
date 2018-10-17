@@ -13,7 +13,7 @@
 // MSP430: "-L{{.*}}/Inputs/basic_msp430_tree/lib/gcc/msp430-elf/7.3.1/../../../../msp430-elf/lib/430"
 // MSP430: "{{.*}}/Inputs/basic_msp430_tree/lib/gcc/msp430-elf/7.3.1/../../../../msp430-elf/lib/430/crt0.o"
 // MSP430: "{{.*}}/Inputs/basic_msp430_tree/lib/gcc/msp430-elf/7.3.1/430/crtbegin.o"
-// MSP430: "--start-group" "-lgcc" "-lc" "-lcrt" "-lnosys" "--end-group"
+// MSP430: "--start-group" "-lmul_none" "-lgcc" "-lc" "-lcrt" "-lnosys" "--end-group"
 // MSP430: "{{.*}}/Inputs/basic_msp430_tree/lib/gcc/msp430-elf/7.3.1/430/crtend.o"
 // MSP430: "{{.*}}/Inputs/basic_msp430_tree/lib/gcc/msp430-elf/7.3.1/../../../../msp430-elf/lib/430/crtn.o"
 
@@ -26,7 +26,7 @@
 // MSP430-NO-DFT-LIB: "-L{{.*}}/Inputs/basic_msp430_tree/lib/gcc/msp430-elf/7.3.1/../../../../msp430-elf/lib/430"
 // MSP430-NO-DFT-LIB: "{{.*}}/Inputs/basic_msp430_tree/lib/gcc/msp430-elf/7.3.1/../../../../msp430-elf/lib/430/crt0.o"
 // MSP430-NO-DFT-LIB: "{{.*}}/Inputs/basic_msp430_tree/lib/gcc/msp430-elf/7.3.1/430/crtbegin.o"
-// MSP430-NO-DFT-LIB: "--start-group" "-lgcc" "--end-group"
+// MSP430-NO-DFT-LIB: "--start-group" "-lmul_none" "-lgcc" "--end-group"
 // MSP430-NO-DFT-LIB: "{{.*}}/Inputs/basic_msp430_tree/lib/gcc/msp430-elf/7.3.1/430/crtend.o"
 // MSP430-NO-DFT-LIB: "{{.*}}/Inputs/basic_msp430_tree/lib/gcc/msp430-elf/7.3.1/../../../../msp430-elf/lib/430/crtn.o"
 
@@ -37,7 +37,7 @@
 // MSP430-NO-START: "{{.*}}Inputs/basic_msp430_tree/lib/gcc/msp430-elf/7.3.1/../../../../bin/msp430-elf-ld"
 // MSP430-NO-START: "-L{{.*}}/Inputs/basic_msp430_tree/lib/gcc/msp430-elf/7.3.1/430"
 // MSP430-NO-START: "-L{{.*}}/Inputs/basic_msp430_tree/lib/gcc/msp430-elf/7.3.1/../../../../msp430-elf/lib/430"
-// MSP430-NO-START: "--start-group" "-lgcc" "-lc" "-lcrt" "-lnosys" "--end-group"
+// MSP430-NO-START: "--start-group" "-lmul_none" "-lgcc" "-lc" "-lcrt" "-lnosys" "--end-group"
 
 // RUN: %clang %s -### -no-canonical-prefixes -target msp430 -nostdlib \
 // RUN:   --gcc-toolchain=%S/Inputs/basic_msp430_tree 2>&1 \
@@ -46,7 +46,7 @@
 // MSP430-NO-STD-LIB: "{{.*}}Inputs/basic_msp430_tree/lib/gcc/msp430-elf/7.3.1/../../../../bin/msp430-elf-ld"
 // MSP430-NO-STD-LIB: "-L{{.*}}/Inputs/basic_msp430_tree/lib/gcc/msp430-elf/7.3.1/430"
 // MSP430-NO-STD-LIB: "-L{{.*}}/Inputs/basic_msp430_tree/lib/gcc/msp430-elf/7.3.1/../../../../msp430-elf/lib/430"
-// MSP430-NO-STD-LIB: "--start-group" "-lgcc" "--end-group"
+// MSP430-NO-STD-LIB: "--start-group" "-lmul_none" "-lgcc" "--end-group"
 
 // RUN: %clang %s -### -no-canonical-prefixes -target msp430 -mmcu=msp430f147 2>&1 \
 // RUN:   | FileCheck -check-prefix=MSP430-HWMult-16BIT %s
