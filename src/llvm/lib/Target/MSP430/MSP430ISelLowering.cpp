@@ -940,18 +940,7 @@ SDValue MSP430TargetLowering::LowerShifts(SDValue Op,
 
   // Expand non-constant shifts to loops:
   if (!isa<ConstantSDNode>(N->getOperand(1)))
-    switch (Opc) {
-    default: llvm_unreachable("Invalid shift opcode!");
-    case ISD::SHL:
-      return DAG.getNode(MSP430ISD::SHL, dl,
-                         VT, N->getOperand(0), N->getOperand(1));
-    case ISD::SRA:
-      return DAG.getNode(MSP430ISD::SRA, dl,
-                         VT, N->getOperand(0), N->getOperand(1));
-    case ISD::SRL:
-      return DAG.getNode(MSP430ISD::SRL, dl,
-                         VT, N->getOperand(0), N->getOperand(1));
-    }
+    return Op;
 
   uint64_t ShiftAmount = cast<ConstantSDNode>(N->getOperand(1))->getZExtValue();
 
@@ -963,7 +952,8 @@ SDValue MSP430TargetLowering::LowerShifts(SDValue Op,
   if (Opc == ISD::SRL && ShiftAmount) {
     // Emit a special goodness here:
     // srl A, 1 => clrc; rrc A
-    Victim = DAG.getNode(MSP430ISD::RRC, dl, VT, Victim);
+    SDValue Flag = DAG.getNode(MSP430ISD::CLRC, dl, MVT::Glue);
+    Victim = DAG.getNode(MSP430ISD::RRC, dl, VT, Victim, Flag);
     ShiftAmount -= 1;
   }
 
@@ -1342,15 +1332,14 @@ const char *MSP430TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case MSP430ISD::RRA:                return "MSP430ISD::RRA";
   case MSP430ISD::RLA:                return "MSP430ISD::RLA";
   case MSP430ISD::RRC:                return "MSP430ISD::RRC";
+  case MSP430ISD::CLRC:               return "MSP430ISD::CLRC";
   case MSP430ISD::CALL:               return "MSP430ISD::CALL";
   case MSP430ISD::Wrapper:            return "MSP430ISD::Wrapper";
   case MSP430ISD::BR_CC:              return "MSP430ISD::BR_CC";
   case MSP430ISD::CMP:                return "MSP430ISD::CMP";
   case MSP430ISD::SETCC:              return "MSP430ISD::SETCC";
   case MSP430ISD::SELECT_CC:          return "MSP430ISD::SELECT_CC";
-  case MSP430ISD::SHL:                return "MSP430ISD::SHL";
-  case MSP430ISD::SRA:                return "MSP430ISD::SRA";
-  case MSP430ISD::SRL:                return "MSP430ISD::SRL";
+  case MSP430ISD::DADD:               return "MSP430ISD::DADD";
   }
   return nullptr;
 }
@@ -1397,31 +1386,34 @@ MSP430TargetLowering::EmitShiftInstr(MachineInstr &MI,
   const TargetInstrInfo &TII = *F->getSubtarget().getInstrInfo();
 
   unsigned Opc;
+  bool ClearCarry = false;
   const TargetRegisterClass * RC;
   switch (MI.getOpcode()) {
   default: llvm_unreachable("Invalid shift opcode!");
   case MSP430::Shl8:
-   Opc = MSP430::SHL8r1;
+   Opc = MSP430::ADD8rr;
    RC = &MSP430::GR8RegClass;
    break;
   case MSP430::Shl16:
-   Opc = MSP430::SHL16r1;
+   Opc = MSP430::ADD16rr;
    RC = &MSP430::GR16RegClass;
    break;
   case MSP430::Sra8:
-   Opc = MSP430::SAR8r1;
+   Opc = MSP430::RRA8r;
    RC = &MSP430::GR8RegClass;
    break;
   case MSP430::Sra16:
-   Opc = MSP430::SAR16r1;
+   Opc = MSP430::RRA16r;
    RC = &MSP430::GR16RegClass;
    break;
   case MSP430::Srl8:
-   Opc = MSP430::SAR8r1c;
+   ClearCarry = true;
+   Opc = MSP430::RRC8r;
    RC = &MSP430::GR8RegClass;
    break;
   case MSP430::Srl16:
-   Opc = MSP430::SAR16r1c;
+   ClearCarry = true;
+   Opc = MSP430::RRC16r;
    RC = &MSP430::GR16RegClass;
    break;
   }
@@ -1476,8 +1468,16 @@ MSP430TargetLowering::EmitShiftInstr(MachineInstr &MI,
   BuildMI(LoopBB, dl, TII.get(MSP430::PHI), ShiftAmtReg)
     .addReg(ShiftAmtSrcReg).addMBB(BB)
     .addReg(ShiftAmtReg2).addMBB(LoopBB);
-  BuildMI(LoopBB, dl, TII.get(Opc), ShiftReg2)
-    .addReg(ShiftReg);
+  if (ClearCarry)
+    BuildMI(LoopBB, dl, TII.get(MSP430::BIC16rc), MSP430::SR)
+      .addReg(MSP430::SR).addImm(1);
+  if (Opc == MSP430::ADD8rr || Opc == MSP430::ADD16rr)
+    BuildMI(LoopBB, dl, TII.get(Opc), ShiftReg2)
+      .addReg(ShiftReg)
+      .addReg(ShiftReg);
+  else
+    BuildMI(LoopBB, dl, TII.get(Opc), ShiftReg2)
+      .addReg(ShiftReg);
   BuildMI(LoopBB, dl, TII.get(MSP430::SUB8ri), ShiftAmtReg2)
     .addReg(ShiftAmtReg).addImm(1);
   BuildMI(LoopBB, dl, TII.get(MSP430::JCC))
@@ -1506,6 +1506,13 @@ MSP430TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
 
   const TargetInstrInfo &TII = *BB->getParent()->getSubtarget().getInstrInfo();
   DebugLoc dl = MI.getDebugLoc();
+
+  if (Opc == MSP430::Clrc) {
+    BuildMI(*BB, MI, dl, TII.get(MSP430::BIC16rc), MSP430::SR)
+      .addReg(MSP430::SR).addImm(1);
+    MI.eraseFromParent(); // The pseudo instruction is gone now.
+    return BB;
+  }
 
   assert((Opc == MSP430::Select16 || Opc == MSP430::Select8) &&
          "Unexpected instr type to insert");
