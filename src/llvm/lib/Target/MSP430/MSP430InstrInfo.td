@@ -48,8 +48,8 @@ def MSP430retiflag : SDNode<"MSP430ISD::RETI_FLAG", SDTNone,
 
 def MSP430rra     : SDNode<"MSP430ISD::RRA", SDTIntUnaryOp, []>;
 def MSP430rla     : SDNode<"MSP430ISD::RLA", SDTIntUnaryOp, []>;
-def MSP430rrc     : SDNode<"MSP430ISD::RRC", SDTIntUnaryOp, [SDNPInGlue]>;
-def MSP430clrc    : SDNode<"MSP430ISD::CLRC", SDTNone, [SDNPOutGlue]>;
+def MSP430rrc     : SDNode<"MSP430ISD::RRC", SDTIntUnaryOp, []>;
+def MSP430rrcl    : SDNode<"MSP430ISD::RRCL", SDTIntUnaryOp, []>;
 
 def MSP430call    : SDNode<"MSP430ISD::CALL", SDT_MSP430Call,
                      [SDNPHasChain, SDNPOutGlue, SDNPOptInGlue, SDNPVariadic]>;
@@ -215,7 +215,8 @@ let isCodeGenOnly = 1, usesCustomInserter = 1 in {
   def Srl16    : Pseudo<(outs GR16:$dst), (ins GR16:$src, GR8:$cnt),
                         "# Srl16 PSEUDO",
                         [(set GR16:$dst, (srl GR16:$src, GR8:$cnt))]>;
-  def Clrc     : Pseudo<(outs), (ins), "", [(MSP430clrc)]>;
+  def Rrcl     : Pseudo<(outs GR16:$dst), (ins GR16:$src), "",
+                        [(set GR16:$dst, (MSP430rrcl GR16:$src))]>;
   }
 }
 
