@@ -36,8 +36,8 @@ namespace llvm {
       /// Y = RRC X, rotate right via carry
       RRC,
 
-      /// Clear carry flag
-      CLRC,
+      /// Rotate right via carry, carry gets cleared beforehand by clrc
+      RRCL,
 
       /// CALL - These operations represent an abstract call
       /// instruction, which includes a bunch of information.
