@@ -1,0 +1,17 @@
+Configure and build llvm+clang+lld:
+cmake \
+-DBUILD_SHARED_LIBS=1 \
+-DCMAKE_BUILD_TYPE=Debug \
+-DLLVM_DEFAULT_TARGET_TRIPLE=msp430-elf \
+-DLLVM_TARGETS_TO_BUILD=MSP430 \
+-DCLANG_ENABLE_STATIC_ANALYZER=0 \
+-DCLANG_ENABLE_ARCMT=0 \
+../src/llvm
+
+Configure and build binutils-gdb:
+./configure --target=msp430-elf
+
+Adjust paths in Makefile and run the test:
+make
+
+Expect zero exit code on success.

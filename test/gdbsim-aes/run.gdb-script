@@ -1,0 +1,4 @@
+target sim
+load
+run
+quit
