@@ -24,6 +24,22 @@ using namespace clang::driver::tools;
 using namespace clang;
 using namespace llvm::opt;
 
+static bool isSupportedMCU(const StringRef MCU) {
+  return llvm::StringSwitch<bool>(MCU)
+#define MSP430_MCU(NAME) .Case(NAME, true)
+#include "clang/Basic/MSP430Target.def"
+      .Default(false);
+}
+
+void msp430::getMSP430TargetFeatures(const Driver &D, const ArgList &Args,
+                                     std::vector<StringRef> &Features) {
+  const Arg *MCUArg = Args.getLastArg(options::OPT_mmcu_EQ);
+  if (MCUArg && !isSupportedMCU(MCUArg->getValue())) {
+    D.Diag(diag::err_drv_msp430_unknown_mcu) << MCUArg->getValue();
+    return;
+  }
+}
+
 /// MSP430 Toolchain
 MSP430ToolChain::MSP430ToolChain(const Driver &D, const llvm::Triple &Triple,
                                  const ArgList &Args)
@@ -53,6 +69,23 @@ void MSP430ToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
     SmallString<128> Dir(computeSysRoot());
     llvm::sys::path::append(Dir, "include");
     addSystemInclude(DriverArgs, CC1Args, Dir.str());
+  }
+}
+
+void MSP430ToolChain::addClangTargetOptions(const ArgList &DriverArgs,
+                                            ArgStringList &CC1Args,
+                                            Action::OffloadKind) const {
+  const auto *MCUArg = DriverArgs.getLastArg(options::OPT_mmcu_EQ);
+  if (!MCUArg)
+    return;
+
+  const StringRef MCU = MCUArg->getValue();
+  if (MCU.startswith("msp430i")) {
+    // 'i' should be in lower case as it's defined in TI MSP430-GCC headers
+    CC1Args.push_back(DriverArgs.MakeArgString(
+        "-D__MSP430i" + MCU.drop_front(7).upper() + "__"));
+  } else {
+    CC1Args.push_back(DriverArgs.MakeArgString("-D__" + MCU.upper() + "__"));
   }
 }
 
@@ -89,6 +122,14 @@ void msp430::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   Args.AddAllArgs(CmdArgs, options::OPT_L);
   ToolChain.AddFilePathLibArgs(Args, CmdArgs);
+
+  if (!Args.hasArg(options::OPT_T)) {
+    if (const Arg *MCUArg = Args.getLastArg(options::OPT_mmcu_EQ))
+      CmdArgs.push_back(
+          Args.MakeArgString("-T" + StringRef(MCUArg->getValue()) + ".ld"));
+  } else {
+    Args.AddAllArgs(CmdArgs, options::OPT_T);
+  }
 
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles)) {
     CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crt0.o")));

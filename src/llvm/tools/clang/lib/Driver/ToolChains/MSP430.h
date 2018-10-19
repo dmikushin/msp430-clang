@@ -13,8 +13,9 @@
 #include "Gnu.h"
 #include "InputInfo.h"
 #include "clang/Driver/Driver.h"
-#include "clang/Driver/ToolChain.h"
+#include "clang/Driver/DriverDiagnostic.h"
 #include "clang/Driver/Tool.h"
+#include "clang/Driver/ToolChain.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/Option.h"
 #include <string>
@@ -32,6 +33,9 @@ public:
   void
   AddClangSystemIncludeArgs(const llvm::opt::ArgList &DriverArgs,
                             llvm::opt::ArgStringList &CC1Args) const override;
+  void addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
+                             llvm::opt::ArgStringList &CC1Args,
+                             Action::OffloadKind) const override;
 
 protected:
   Tool *buildLinker() const override;
@@ -56,6 +60,9 @@ public:
                     const llvm::opt::ArgList &TCArgs,
                     const char *LinkingOutput) const override;
 };
+
+void getMSP430TargetFeatures(const Driver &D, const llvm::opt::ArgList &Args,
+                             std::vector<llvm::StringRef> &Features);
 } // end namespace msp430
 } // end namespace tools
 } // end namespace driver
