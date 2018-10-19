@@ -402,4 +402,15 @@ def warn_drv_experimental_isel_incomplete_opt : Warning<
 def warn_drv_moutline_unsupported_opt : Warning<
   "The '%0' architecture does not support -moutline; flag ignored">,
   InGroup<OptionIgnored>;
+
+def warn_drv_msp430_hwmult_unsupported : Warning<"the given MCU does not "
+  "support hardware multiply, but -mhwmult is set to %0.">,
+   InGroup<InvalidCommandLineArgument>;
+def warn_drv_msp430_hwmult_mismatch : Warning<"the given MCU supports %0 "
+  "hardware multiply, but -mhwmult is set to %1.">,
+   InGroup<InvalidCommandLineArgument>;
+def warn_drv_msp430_hwmult_no_device : Warning<"no MCU device specified, but "
+  "'-mhwmult' is set to 'auto', assuming no hardware multiply. Use -mmcu to "
+  "specify a MSP430 device, or -mhwmult to set hardware multiply type "
+  "explicitly.">, InGroup<InvalidCommandLineArgument>;
 }
