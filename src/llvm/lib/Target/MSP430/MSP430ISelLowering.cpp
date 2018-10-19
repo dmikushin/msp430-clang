@@ -952,8 +952,7 @@ SDValue MSP430TargetLowering::LowerShifts(SDValue Op,
   if (Opc == ISD::SRL && ShiftAmount) {
     // Emit a special goodness here:
     // srl A, 1 => clrc; rrc A
-    SDValue Flag = DAG.getNode(MSP430ISD::CLRC, dl, MVT::Glue);
-    Victim = DAG.getNode(MSP430ISD::RRC, dl, VT, Victim, Flag);
+    Victim = DAG.getNode(MSP430ISD::RRCL, dl, VT, Victim);
     ShiftAmount -= 1;
   }
 
@@ -1332,7 +1331,7 @@ const char *MSP430TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case MSP430ISD::RRA:                return "MSP430ISD::RRA";
   case MSP430ISD::RLA:                return "MSP430ISD::RLA";
   case MSP430ISD::RRC:                return "MSP430ISD::RRC";
-  case MSP430ISD::CLRC:               return "MSP430ISD::CLRC";
+  case MSP430ISD::RRCL:               return "MSP430ISD::RRCL";
   case MSP430ISD::CALL:               return "MSP430ISD::CALL";
   case MSP430ISD::Wrapper:            return "MSP430ISD::Wrapper";
   case MSP430ISD::BR_CC:              return "MSP430ISD::BR_CC";
@@ -1507,9 +1506,13 @@ MSP430TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   const TargetInstrInfo &TII = *BB->getParent()->getSubtarget().getInstrInfo();
   DebugLoc dl = MI.getDebugLoc();
 
-  if (Opc == MSP430::Clrc) {
+  if (Opc == MSP430::Rrcl) {
     BuildMI(*BB, MI, dl, TII.get(MSP430::BIC16rc), MSP430::SR)
       .addReg(MSP430::SR).addImm(1);
+    unsigned SrcReg = MI.getOperand(1).getReg();
+    unsigned DstReg = MI.getOperand(0).getReg();
+    BuildMI(*BB, MI, dl, TII.get(MSP430::RRC16r), DstReg)
+      .addReg(SrcReg);
     MI.eraseFromParent(); // The pseudo instruction is gone now.
     return BB;
   }
