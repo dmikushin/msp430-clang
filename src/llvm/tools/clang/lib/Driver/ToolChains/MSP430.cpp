@@ -115,15 +115,17 @@ MSP430ToolChain::MSP430ToolChain(const Driver &D, const llvm::Triple &Triple,
                                  const ArgList &Args)
     : Generic_ELF(D, Triple, Args) {
 
+  StringRef MultilibSuf = "";
+
   GCCInstallation.init(Triple, Args);
   if (GCCInstallation.isValid()) {
-    StringRef MultilibSuf = GCCInstallation.getMultilib().gccSuffix();
-    getFilePaths().push_back((computeSysRoot() + "/lib" + MultilibSuf).str());
+    MultilibSuf = GCCInstallation.getMultilib().gccSuffix();
     getFilePaths().push_back(
         (GCCInstallation.getInstallPath() + MultilibSuf).str());
     getProgramPaths().push_back(
         (GCCInstallation.getParentLibPath() + "/../bin").str());
   }
+  getFilePaths().push_back((computeSysRoot() + "/lib" + MultilibSuf).str());
 }
 
 Tool *MSP430ToolChain::buildLinker() const {
@@ -145,6 +147,8 @@ void MSP430ToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
 void MSP430ToolChain::addClangTargetOptions(const ArgList &DriverArgs,
                                             ArgStringList &CC1Args,
                                             Action::OffloadKind) const {
+  CC1Args.push_back("-nostdsysteminc");
+
   const auto *MCUArg = DriverArgs.getLastArg(options::OPT_mmcu_EQ);
   if (!MCUArg)
     return;
@@ -163,13 +167,14 @@ std::string MSP430ToolChain::computeSysRoot() const {
   if (!getDriver().SysRoot.empty())
     return getDriver().SysRoot;
 
-  if (!GCCInstallation.isValid())
-    return std::string();
-
-  StringRef LibDir = GCCInstallation.getParentLibPath();
-  StringRef TripleStr = GCCInstallation.getTriple().str();
-  std::string SysRootDir = LibDir.str() + "/../" + TripleStr.str();
-
+  std::string SysRootDir;
+  if (GCCInstallation.isValid()) {
+    StringRef LibDir = GCCInstallation.getParentLibPath();
+    StringRef TripleStr = GCCInstallation.getTriple().str();
+    SysRootDir = LibDir.str() + "/../" + TripleStr.str();
+  } else {
+    SysRootDir = getDriver().Dir + "/../" + getTriple().getTriple();
+  }
   if (!llvm::sys::fs::exists(SysRootDir))
     return std::string();
 
