@@ -3696,6 +3696,15 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     Value *ArgPtr = Builder.CreateLoad(SrcAddr, "ap.val");
     return RValue::get(Builder.CreateStore(ArgPtr, DestAddr));
   }
+  case Builtin::BI__builtin_flt_rounds: {
+    Value *F = CGM.getIntrinsic(Intrinsic::flt_rounds);
+    Value *Result = Builder.CreateCall(F);
+    llvm::Type *ResultType = ConvertType(E->getType());
+    if (Result->getType() != ResultType)
+      Result = Builder.CreateIntCast(Result, ResultType, /*isSigned*/true,
+                                     "cast");
+    return RValue::get(Result);
+  }
   }
 
   // If this is an alias for a lib function (e.g. __builtin_sin), emit
