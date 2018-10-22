@@ -1390,31 +1390,44 @@ MSP430TargetLowering::EmitShiftInstr(MachineInstr &MI,
   switch (MI.getOpcode()) {
   default: llvm_unreachable("Invalid shift opcode!");
   case MSP430::Shl8:
-   Opc = MSP430::ADD8rr;
-   RC = &MSP430::GR8RegClass;
-   break;
+    Opc = MSP430::ADD8rr;
+    RC = &MSP430::GR8RegClass;
+    break;
   case MSP430::Shl16:
-   Opc = MSP430::ADD16rr;
-   RC = &MSP430::GR16RegClass;
-   break;
+    Opc = MSP430::ADD16rr;
+    RC = &MSP430::GR16RegClass;
+    break;
   case MSP430::Sra8:
-   Opc = MSP430::RRA8r;
-   RC = &MSP430::GR8RegClass;
-   break;
+    Opc = MSP430::RRA8r;
+    RC = &MSP430::GR8RegClass;
+    break;
   case MSP430::Sra16:
-   Opc = MSP430::RRA16r;
-   RC = &MSP430::GR16RegClass;
-   break;
+    Opc = MSP430::RRA16r;
+    RC = &MSP430::GR16RegClass;
+    break;
   case MSP430::Srl8:
-   ClearCarry = true;
-   Opc = MSP430::RRC8r;
-   RC = &MSP430::GR8RegClass;
-   break;
+    ClearCarry = true;
+    Opc = MSP430::RRC8r;
+    RC = &MSP430::GR8RegClass;
+    break;
   case MSP430::Srl16:
-   ClearCarry = true;
-   Opc = MSP430::RRC16r;
-   RC = &MSP430::GR16RegClass;
-   break;
+    ClearCarry = true;
+    Opc = MSP430::RRC16r;
+    RC = &MSP430::GR16RegClass;
+    break;
+  case MSP430::Rrcl8:
+  case MSP430::Rrcl16: {
+    BuildMI(*BB, MI, dl, TII.get(MSP430::BIC16rc), MSP430::SR)
+      .addReg(MSP430::SR).addImm(1);
+    unsigned SrcReg = MI.getOperand(1).getReg();
+    unsigned DstReg = MI.getOperand(0).getReg();
+    unsigned RrcOpc = MI.getOpcode() == MSP430::Rrcl16
+                    ? MSP430::RRC16r : MSP430::RRC8r;
+    BuildMI(*BB, MI, dl, TII.get(RrcOpc), DstReg)
+      .addReg(SrcReg);
+    MI.eraseFromParent(); // The pseudo instruction is gone now.
+    return BB;
+  }
   }
 
   const BasicBlock *LLVM_BB = BB->getBasicBlock();
@@ -1498,24 +1511,14 @@ MSP430TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
                                                   MachineBasicBlock *BB) const {
   unsigned Opc = MI.getOpcode();
 
-  if (Opc == MSP430::Shl8 || Opc == MSP430::Shl16 ||
-      Opc == MSP430::Sra8 || Opc == MSP430::Sra16 ||
-      Opc == MSP430::Srl8 || Opc == MSP430::Srl16)
+  if (Opc == MSP430::Shl8  || Opc == MSP430::Shl16 ||
+      Opc == MSP430::Sra8  || Opc == MSP430::Sra16 ||
+      Opc == MSP430::Srl8  || Opc == MSP430::Srl16 ||
+      Opc == MSP430::Rrcl8 || Opc == MSP430::Rrcl16)
     return EmitShiftInstr(MI, BB);
 
   const TargetInstrInfo &TII = *BB->getParent()->getSubtarget().getInstrInfo();
   DebugLoc dl = MI.getDebugLoc();
-
-  if (Opc == MSP430::Rrcl) {
-    BuildMI(*BB, MI, dl, TII.get(MSP430::BIC16rc), MSP430::SR)
-      .addReg(MSP430::SR).addImm(1);
-    unsigned SrcReg = MI.getOperand(1).getReg();
-    unsigned DstReg = MI.getOperand(0).getReg();
-    BuildMI(*BB, MI, dl, TII.get(MSP430::RRC16r), DstReg)
-      .addReg(SrcReg);
-    MI.eraseFromParent(); // The pseudo instruction is gone now.
-    return BB;
-  }
 
   assert((Opc == MSP430::Select16 || Opc == MSP430::Select8) &&
          "Unexpected instr type to insert");

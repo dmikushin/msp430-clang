@@ -215,7 +215,9 @@ let isCodeGenOnly = 1, usesCustomInserter = 1 in {
   def Srl16    : Pseudo<(outs GR16:$dst), (ins GR16:$src, GR8:$cnt),
                         "# Srl16 PSEUDO",
                         [(set GR16:$dst, (srl GR16:$src, GR8:$cnt))]>;
-  def Rrcl     : Pseudo<(outs GR16:$dst), (ins GR16:$src), "",
+  def Rrcl8    : Pseudo<(outs GR8:$dst), (ins GR8:$src), "",
+                        [(set GR8:$dst, (MSP430rrcl GR8:$src))]>;
+  def Rrcl16   : Pseudo<(outs GR16:$dst), (ins GR16:$src), "",
                         [(set GR16:$dst, (MSP430rrcl GR16:$src))]>;
   }
 }
