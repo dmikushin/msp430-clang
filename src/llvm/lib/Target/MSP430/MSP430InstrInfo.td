@@ -469,7 +469,7 @@ multiclass Arith<bits<4> opcode, string asmstring, SDNode node,
   let mayLoad = 1,
       hasExtraDefRegAllocReq = 1,
       Constraints = "$rs = $wb, $src2 = $rd" in {
-  def 8rp : I8rp<opcode, (outs GR8:$rd, GR8:$wb), (ins GR8:$src2, postreg:$rs),
+  def 8rp : I8rp<opcode, (outs GR8:$rd, GR16:$wb), (ins GR8:$src2, postreg:$rs),
                  !strconcat(asmstring, ".b\t$rs, $rd"), []>;
   def 16rp : I16rp<opcode, (outs GR16:$rd, GR16:$wb), (ins GR16:$src2, postreg:$rs),
                    !strconcat(asmstring, "\t$rs, $rd"), []>;
