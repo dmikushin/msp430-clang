@@ -139,7 +139,7 @@ static DecodeStatus DecodeMemOperand(MCInst &MI, uint64_t Bits,
       MCDisassembler::Success)
     return MCDisassembler::Fail;
   
-  MI.addOperand(MCOperand::createImm(Imm));
+  MI.addOperand(MCOperand::createImm((int16_t)Imm));
   return MCDisassembler::Success;
 }
 
