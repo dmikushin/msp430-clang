@@ -141,7 +141,7 @@ class I8mi<bits<4> opcode,
 
 class I8mc<bits<4> opcode,
            dag outs, dag ins, string asmstr, list<dag> pattern>
-  : MSP430Inst<outs, ins, 2, asmstr> {
+  : MSP430Inst<outs, ins, 4, asmstr> {
   let DecoderNamespace = "Beta";
   let Pattern = pattern;
 
@@ -171,7 +171,7 @@ class I8mm<bits<4> opcode,
 
 class I8mn<bits<4> opcode,
            dag outs, dag ins, string asmstr, list<dag> pattern>
-  : IForm8<opcode, DstMem, SrcIndReg, 2, outs, ins, asmstr, pattern> {
+  : IForm8<opcode, DstMem, SrcIndReg, 4, outs, ins, asmstr, pattern> {
   let DecoderNamespace = "Delta";
   bits<20> dst;
   let rd = dst{3-0};
@@ -180,7 +180,7 @@ class I8mn<bits<4> opcode,
 
 class I8mp<bits<4> opcode,
            dag outs, dag ins, string asmstr, list<dag> pattern>
-  : IForm8<opcode, DstMem, SrcPostInc, 2, outs, ins, asmstr, pattern> {
+  : IForm8<opcode, DstMem, SrcPostInc, 4, outs, ins, asmstr, pattern> {
   let DecoderNamespace = "Delta";
   bits<20> dst;
   let rd = dst{3-0};

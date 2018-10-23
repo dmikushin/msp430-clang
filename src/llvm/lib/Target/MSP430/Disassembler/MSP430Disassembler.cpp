@@ -259,7 +259,8 @@ DecodeStatus MSP430Disassembler::getInstructionI(MCInst &MI, uint64_t &Size,
   case amIndexed:
   case amSymbolic:
   case amAbsolute:
-    Insn |= (uint64_t)support::endian::read16le(Bytes.data() + 4) << 32;
+    Insn |= (uint64_t)support::endian::read16le(Bytes.data() + Words * 2)
+        << (Words * 16);
     ++Words;
     break;
   default:

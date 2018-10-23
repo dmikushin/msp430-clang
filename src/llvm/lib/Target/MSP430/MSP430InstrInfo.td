@@ -758,6 +758,17 @@ def BIT16rr : I16rr<0b1011,
                     [(MSP430cmp (and_su GR16:$rd, GR16:$rs), 0),
                      (implicit SR)]>;
 }
+def BIT8rc  : I8rc<0b1011,
+                   (outs), (ins GR8:$rd, cg8imm:$imm),
+                   "bit.b\t$imm, $rd",
+                   [(MSP430cmp (and_su GR8:$rd, cg8imm:$imm), 0),
+                    (implicit SR)]>;
+def BIT16rc : I16rc<0b1011,
+                    (outs), (ins GR16:$rd, cg16imm:$imm),
+                    "bit\t$imm, $rd",
+                    [(MSP430cmp (and_su GR16:$rd, cg16imm:$imm), 0),
+                     (implicit SR)]>;
+
 def BIT8ri  : I8ri<0b1011,
                    (outs), (ins GR8:$rd, i8imm:$imm),
                    "bit.b\t$imm, $rd",
@@ -789,6 +800,17 @@ def BIT16mr : I16mr<0b1011,
                     (outs), (ins memsrc:$dst, GR16:$rs),
                     "bit\t$rs, $dst",
                     [(MSP430cmp (and_su (load addr:$dst), GR16:$rs), 0),
+                     (implicit SR)]>;
+
+def BIT8mc  : I8mc<0b1011,
+                   (outs), (ins memsrc:$dst, cg8imm:$imm),
+                   "bit.b\t$imm, $dst",
+                   [(MSP430cmp (and_su (load addr:$dst), (i8 cg8imm:$imm)), 0),
+                    (implicit SR)]>;
+def BIT16mc : I16mc<0b1011,
+                    (outs), (ins memsrc:$dst, i16imm:$imm),
+                    "bit\t$imm, $dst",
+                    [(MSP430cmp (and_su (load addr:$dst), (i16 cg16imm:$imm)), 0),
                      (implicit SR)]>;
 
 def BIT8mi  : I8mi<0b1011,
