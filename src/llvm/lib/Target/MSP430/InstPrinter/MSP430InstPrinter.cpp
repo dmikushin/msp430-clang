@@ -37,9 +37,13 @@ void MSP430InstPrinter::printInst(const MCInst *MI, raw_ostream &O,
 void MSP430InstPrinter::printPCRelImmOperand(const MCInst *MI, unsigned OpNo,
                                              raw_ostream &O) {
   const MCOperand &Op = MI->getOperand(OpNo);
-  if (Op.isImm())
-    O << Op.getImm();
-  else {
+  if (Op.isImm()) {
+    int64_t Imm = Op.getImm() * 2 + 2;
+    O << "$";
+    if (Imm >= 0)
+      O << '+';
+    O << Imm;
+  } else {
     assert(Op.isExpr() && "unknown pcrel immediate operand");
     Op.getExpr()->print(O, &MAI);
   }

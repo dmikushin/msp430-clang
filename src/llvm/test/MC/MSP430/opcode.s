@@ -81,29 +81,29 @@
                 ; CHECK: encoding: [0x00,0x13]
 
   ;; CJForm instructions
-  jnz    -2     ; CHECK-INST: jne    -2    
+  jnz    -2     ; CHECK-INST: jne    $-2
                 ; CHECK: encoding: [0xfe,0x23]
-  jne    -2     ; CHECK-INST: jne    -2    
+  jne    -2     ; CHECK-INST: jne    $-2
                 ; CHECK: encoding: [0xfe,0x23]
-  jeq    -2     ; CHECK-INST: jeq    -2    
+  jeq    -2     ; CHECK-INST: jeq    $-2
                 ; CHECK: encoding: [0xfe,0x27]
-  jz     -2     ; CHECK-INST: jeq    -2    
+  jz     -2     ; CHECK-INST: jeq    $-2
                 ; CHECK: encoding: [0xfe,0x27]
-  jnc    -2     ; CHECK-INST: jlo    -2    
+  jnc    -2     ; CHECK-INST: jlo    $-2
                 ; CHECK: encoding: [0xfe,0x2b]
-  jlo    -2     ; CHECK-INST: jlo    -2    
+  jlo    -2     ; CHECK-INST: jlo    $-2
                 ; CHECK: encoding: [0xfe,0x2b]
-  jc     -2     ; CHECK-INST: jhs    -2    
+  jc     -2     ; CHECK-INST: jhs    $-2
                 ; CHECK: encoding: [0xfe,0x2f]
-  jhs    -2     ; CHECK-INST: jhs    -2    
+  jhs    -2     ; CHECK-INST: jhs    $-2
                 ; CHECK: encoding: [0xfe,0x2f]
-  jn     -2     ; CHECK-INST: jn     -2    
+  jn     -2     ; CHECK-INST: jn     $-2
                 ; CHECK: encoding: [0xfe,0x33]
-  jge    -2     ; CHECK-INST: jge    -2    
+  jge    -2     ; CHECK-INST: jge    $-2
                 ; CHECK: encoding: [0xfe,0x37]
-  jl     -2     ; CHECK-INST: jl     -2    
+  jl     -2     ; CHECK-INST: jl     $-2
                 ; CHECK: encoding: [0xfe,0x3b]
-  jmp    -2     ; CHECK-INST: jmp    -2    
+  jmp    $-2    ; CHECK-INST: jmp    $-2
                 ; CHECK: encoding: [0xfe,0x3f]
 
   ;; Emulated arithmetic instructions

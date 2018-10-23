@@ -339,6 +339,10 @@ bool MSP430AsmParser::parseJccInstruction(ParseInstructionInfo &Info,
     Operands.push_back(MSP430Operand::CreateImm(CCode, SMLoc(), SMLoc()));
   }
 
+  // Skip optional '$' sign.
+  if (getLexer().getKind() == AsmToken::Dollar)
+    getLexer().Lex(); // Eat '$'
+
   const MCExpr *Val;
   SMLoc ExprLoc = getLexer().getLoc();
   if (getParser().parseExpression(Val))
