@@ -28,7 +28,6 @@ using namespace llvm;
 
 namespace {
 class MSP430AsmBackend : public MCAsmBackend {
-  const MCSubtargetInfo &STI;
   uint8_t OSABI;
 
   uint64_t adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
@@ -36,7 +35,7 @@ class MSP430AsmBackend : public MCAsmBackend {
 
 public:
   MSP430AsmBackend(const MCSubtargetInfo &STI, uint8_t OSABI)
-      : MCAsmBackend(support::little), STI(STI), OSABI(OSABI) {}
+      : MCAsmBackend(support::little), OSABI(OSABI) {}
   ~MSP430AsmBackend() override {}
 
   void applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
