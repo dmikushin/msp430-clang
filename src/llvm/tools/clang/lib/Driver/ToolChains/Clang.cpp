@@ -519,6 +519,7 @@ static bool useFramePointerForTargetByDefault(const ArgList &Args,
     // XCore never wants frame pointers, regardless of OS.
     // WebAssembly never wants frame pointers.
     return false;
+  case llvm::Triple::msp430:
   case llvm::Triple::riscv32:
   case llvm::Triple::riscv64:
     return !areOptimizationsEnabled(Args);
