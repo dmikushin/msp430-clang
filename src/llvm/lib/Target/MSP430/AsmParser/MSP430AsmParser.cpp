@@ -285,7 +285,7 @@ static unsigned MatchRegisterAltName(StringRef Name);
 bool MSP430AsmParser::ParseRegister(unsigned &RegNo, SMLoc &StartLoc,
                                     SMLoc &EndLoc) {
   if (getLexer().getKind() == AsmToken::Identifier) {
-    StringRef Name = getLexer().getTok().getIdentifier();
+    StringRef Name = getLexer().getTok().getIdentifier().lower();
     RegNo = MatchRegisterName(Name);
     if (RegNo == MSP430::NoRegister) {
       RegNo = MatchRegisterAltName(Name);

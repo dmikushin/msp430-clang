@@ -4,3 +4,4 @@
   mov sr, r2 ; CHECK: mov r2, r2
   mov cg, r3 ; CHECK: mov r3, r3
   mov fp, r4 ; CHECK: mov r4, r4
+  bic #8, SR ; CHECK: dint
