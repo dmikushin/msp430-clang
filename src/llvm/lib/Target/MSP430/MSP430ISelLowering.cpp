@@ -217,7 +217,11 @@ MSP430TargetLowering::MSP430TargetLowering(const TargetMachine &TM,
     // { RTLIB::NEG_F64,  "__mspabi_negd", ISD::SETCC_INVALID },
     // { RTLIB::NEG_F32,  "__mspabi_negf", ISD::SETCC_INVALID },
 
-    // TODO: SLL/SRA/SRL are in libgcc, RLL isn't
+    // TODO: __mspabi_[srli/srai/slli] ARE implemented in libgcc
+    { RTLIB::SRL_I32,    "__mspabi_srll", ISD::SETCC_INVALID },
+    { RTLIB::SRA_I32,    "__mspabi_sral", ISD::SETCC_INVALID },
+    { RTLIB::SHL_I32,    "__mspabi_slll", ISD::SETCC_INVALID },
+    // __mspabi_[srlll/srall/sllll/rlli/rllll] are NOT implemented in libgcc
 
     // Universal Integer Operations - EABI Table 9
     { RTLIB::SDIV_I16,   "__mspabi_divi", ISD::SETCC_INVALID },
