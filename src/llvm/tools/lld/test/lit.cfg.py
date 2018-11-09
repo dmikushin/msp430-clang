@@ -67,6 +67,7 @@ llvm_config.feature_config(
                           'AVR': 'avr',
                           'Hexagon': 'hexagon',
                           'Mips': 'mips',
+                          'MSP430': 'msp430',
                           'PowerPC': 'ppc',
                           'RISCV': 'riscv',
                           'Sparc': 'sparc',
