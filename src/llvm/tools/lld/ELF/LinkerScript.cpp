@@ -747,6 +747,10 @@ MemoryRegion *LinkerScript::findMemoryRegion(OutputSection *Sec) {
       return M;
   }
 
+  // If the section is empty, let it have no region.
+  if (!Sec->Size && getInputSections(Sec).empty())
+    return nullptr;
+
   // Otherwise, no suitable region was found.
   if (Sec->Flags & SHF_ALLOC)
     error("no memory region specified for section '" + Sec->Name + "'");
