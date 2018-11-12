@@ -20,7 +20,7 @@ entry:
 ; CHECK-LABEL: caller:
 ; CHECK: mov &foo+4, 4(r1)
 ; CHECK-NEXT: mov &foo+2, 2(r1)
-; CHECK-NEXT: mov &foo, 0(r1)
+; CHECK-NEXT: mov &foo, @r1
   %call = call i16 @callee(%struct.Foo* byval @foo)
   ret void
 }

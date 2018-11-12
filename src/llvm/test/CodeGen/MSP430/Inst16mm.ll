@@ -65,5 +65,5 @@ entry:
  ret i16 %0
 ; CHECK-LABEL: mov2:
 ; CHECK-DAG:	mov	2(r1), 6(r1)
-; CHECK-DAG:	mov	0(r1), 4(r1)
+; CHECK-DAG:	mov	@r1, 4(r1)
 }

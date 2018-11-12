@@ -7,7 +7,7 @@ define i16 @am1(i16* %a) nounwind {
 	ret i16 %1
 }
 ; CHECK-LABEL: am1:
-; CHECK:		mov	0(r12), r12
+; CHECK:		mov	@r12, r12
 
 @foo = external global i16
 

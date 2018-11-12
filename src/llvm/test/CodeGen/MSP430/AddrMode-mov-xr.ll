@@ -7,7 +7,7 @@ define void @am1(i16* %a, i16 %b) nounwind {
 	ret void
 }
 ; CHECK-LABEL: am1:
-; CHECK:		mov	r13, 0(r12)
+; CHECK:		mov	r13, @r12
 
 @foo = external global i16
 

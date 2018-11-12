@@ -37,7 +37,7 @@ entry:
 ; CHECK: call #f_i16_i32_i16
   call void @f_i16_i32_i16(i16 1, i32 16909060, i16 2)
 
-; CHECK: mov #1286, 0(r1)
+; CHECK: mov #1286, @r1
 ; CHECK: mov #1, r12
 ; CHECK: mov #772, r13
 ; CHECK: mov #258, r14
@@ -48,7 +48,7 @@ entry:
 ; CHECK: mov #258, 6(r1)
 ; CHECK: mov #772, 4(r1)
 ; CHECK: mov #1286, 2(r1)
-; CHECK: mov #1800, 0(r1)
+; CHECK: mov #1800, @r1
 ; CHECK: mov #1, r12
 ; CHECK: mov #2, r13
 ; CHECK: call #f_i16_i64_i16
@@ -60,7 +60,7 @@ entry:
 ; CHECK: mov	#258, 6(r1)
 ; CHECK: mov	#772, 4(r1)
 ; CHECK: mov	#1286, 2(r1)
-; CHECK: mov	#1800, 0(r1)
+; CHECK: mov	#1800, @r1
 ; CHECK: mov	#1, r12
 ; CHECK: mov	#772, r13
 ; CHECK: mov	#258, r14
@@ -69,7 +69,7 @@ entry:
 ; CHECK: mov	#258, 6(r1)
 ; CHECK: mov	#772, 4(r1)
 ; CHECK: mov	#1286, 2(r1)
-; CHECK: mov	#1800, 0(r1)
+; CHECK: mov	#1800, @r1
 ; CHECK: mov	#1800, r12
 ; CHECK: mov	#1286, r13
 ; CHECK: mov	#772, r14

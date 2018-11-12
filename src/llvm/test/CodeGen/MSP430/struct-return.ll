@@ -16,7 +16,7 @@ define %s @fred() #0 {
 ; CHECK: mov	#258, 6(r12)
 ; CHECK: mov	#772, 4(r12)
 ; CHECK: mov	#1286, 2(r12)
-; CHECK: mov	#1800, 0(r12)
+; CHECK: mov	#1800, @r12
   ret %s {i64 72623859790382856, i64 651345242494996224}
 }
 
@@ -37,7 +37,7 @@ define void @test() #1 {
 
 define void @sret(%struct.S* noalias nocapture sret) #0 {
 ; CHECK-LABEL: sret:
-; CHECK: mov	&a, 0(r12)
+; CHECK: mov	&a, @r12
 ; CHECK: mov	&b, 2(r12)
 ; CHECK: mov	&c, 4(r12)
   %2 = getelementptr inbounds %struct.S, %struct.S* %0, i16 0, i32 0

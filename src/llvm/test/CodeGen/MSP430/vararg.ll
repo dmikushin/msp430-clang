@@ -15,7 +15,7 @@ entry:
   %vl1 = bitcast i8** %vl to i8*
 ; CHECK-NEXT: mov r1, [[REG:r[0-9]+]]
 ; CHECK-NEXT: add #6, [[REG]]
-; CHECK-NEXT: mov [[REG]], 0(r1)
+; CHECK-NEXT: mov [[REG]], @r1
   call void @llvm.va_start(i8* %vl1)
   call void @llvm.va_end(i8* %vl1)
   ret void
@@ -28,9 +28,9 @@ entry:
   store i8* %vl, i8** %vl.addr, align 2
 ; CHECK: mov r12, [[REG:r[0-9]+]]
 ; CHECK-NEXT: incd [[REG]]
-; CHECK-NEXT: mov [[REG]], 0(r1)
+; CHECK-NEXT: mov [[REG]], @r1
   %0 = va_arg i8** %vl.addr, i16
-; CHECK-NEXT: mov 0(r12), r12
+; CHECK-NEXT: mov @r12, r12
   ret i16 %0
 }
 
@@ -43,7 +43,7 @@ entry:
   store i8* %vl, i8** %vl.addr, align 2
   %0 = bitcast i8** %vl2 to i8*
   %1 = bitcast i8** %vl.addr to i8*
-; CHECK-DAG: mov r12, 0(r1)
+; CHECK-DAG: mov r12, @r1
   call void @llvm.va_copy(i8* %0, i8* %1)
   ret void
 }
