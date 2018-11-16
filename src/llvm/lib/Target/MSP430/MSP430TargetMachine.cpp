@@ -86,6 +86,7 @@ bool MSP430PassConfig::addInstSelector() {
 }
 
 void MSP430PassConfig::addPreEmitPass() {
+  addPass(createMSP430AddrModeTransformPass(), false);
   // Must run branch selection immediately preceding the asm printer.
   addPass(createMSP430BranchSelectionPass(), false);
 }

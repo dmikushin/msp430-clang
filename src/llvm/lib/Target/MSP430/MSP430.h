@@ -43,6 +43,7 @@ namespace llvm {
                                     CodeGenOpt::Level OptLevel);
 
   FunctionPass *createMSP430BranchSelectionPass();
+  FunctionPass *createMSP430AddrModeTransformPass();
 
 } // end namespace llvm;
 

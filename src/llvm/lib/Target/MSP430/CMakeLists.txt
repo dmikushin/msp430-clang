@@ -13,6 +13,7 @@ tablegen(LLVM MSP430GenSubtargetInfo.inc -gen-subtarget)
 add_public_tablegen_target(MSP430CommonTableGen)
 
 add_llvm_target(MSP430CodeGen
+  MSP430AddressModeTransformPass.cpp
   MSP430BranchSelector.cpp
   MSP430ISelDAGToDAG.cpp
   MSP430ISelLowering.cpp
