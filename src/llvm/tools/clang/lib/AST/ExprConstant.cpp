@@ -39,11 +39,13 @@
 #include "clang/AST/ASTLambda.h"
 #include "clang/AST/CharUnits.h"
 #include "clang/AST/Expr.h"
+#include "clang/AST/OSLog.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/TargetInfo.h"
+#include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cstring>
 #include <functional>
@@ -143,8 +145,8 @@ namespace {
     // If we're doing a variable assignment from e.g. malloc(N), there will
     // probably be a cast of some kind. In exotic cases, we might also see a
     // top-level ExprWithCleanups. Ignore them either way.
-    if (const auto *EC = dyn_cast<ExprWithCleanups>(E))
-      E = EC->getSubExpr()->IgnoreParens();
+    if (const auto *FE = dyn_cast<FullExpr>(E))
+      E = FE->getSubExpr()->IgnoreParens();
 
     if (const auto *Cast = dyn_cast<CastExpr>(E))
       E = Cast->getSubExpr()->IgnoreParens();
@@ -720,6 +722,10 @@ namespace {
     /// Whether or not we're currently speculatively evaluating.
     bool IsSpeculativelyEvaluating;
 
+    /// Whether or not we're in a context where the front end requires a
+    /// constant value.
+    bool InConstantContext;
+
     enum EvaluationMode {
       /// Evaluate as a constant expression. Stop if we find that the expression
       /// is not a constant expression.
@@ -781,7 +787,7 @@ namespace {
         EvaluatingDecl((const ValueDecl *)nullptr),
         EvaluatingDeclValue(nullptr), HasActiveDiagnostic(false),
         HasFoldFailureDiagnostic(false), IsSpeculativelyEvaluating(false),
-        EvalMode(Mode) {}
+        InConstantContext(false), EvalMode(Mode) {}
 
     void setEvaluatingDecl(APValue::LValueBase Base, APValue &Value) {
       EvaluatingDecl = Base;
@@ -2073,11 +2079,12 @@ static APSInt HandleIntToIntCast(EvalInfo &Info, const Expr *E,
                                  QualType DestType, QualType SrcType,
                                  const APSInt &Value) {
   unsigned DestWidth = Info.Ctx.getIntWidth(DestType);
-  APSInt Result = Value;
   // Figure out if this is a truncate, extend or noop cast.
   // If the input is signed, do a sign extend, noop, or truncate.
-  Result = Result.extOrTrunc(DestWidth);
+  APSInt Result = Value.extOrTrunc(DestWidth);
   Result.setIsUnsigned(DestType->isUnsignedIntegerOrEnumerationType());
+  if (DestType->isBooleanType())
+    Result = Value.getBoolValue();
   return Result;
 }
 
@@ -4718,6 +4725,8 @@ public:
     return Error(E);
   }
 
+  bool VisitConstantExpr(const ConstantExpr *E)
+    { return StmtVisitorTy::Visit(E->getSubExpr()); }
   bool VisitParenExpr(const ParenExpr *E)
     { return StmtVisitorTy::Visit(E->getSubExpr()); }
   bool VisitUnaryExtension(const UnaryOperator *E)
@@ -5621,8 +5630,10 @@ static bool getBytesReturnedByAllocSizeCall(const ASTContext &Ctx,
     return false;
 
   auto EvaluateAsSizeT = [&](const Expr *E, APSInt &Into) {
-    if (!E->EvaluateAsInt(Into, Ctx, Expr::SE_AllowSideEffects))
+    Expr::EvalResult ExprResult;
+    if (!E->EvaluateAsInt(ExprResult, Ctx, Expr::SE_AllowSideEffects))
       return false;
+    Into = ExprResult.Val.getInt();
     if (Into.isNegative() || !Into.isIntN(BitsInSizeT))
       return false;
     Into = Into.zextOrSelf(BitsInSizeT);
@@ -5946,21 +5957,35 @@ bool PointerExprEvaluator::VisitCastExpr(const CastExpr *E) {
   return ExprEvaluatorBaseTy::VisitCastExpr(E);
 }
 
-static CharUnits GetAlignOfType(EvalInfo &Info, QualType T) {
+static CharUnits GetAlignOfType(EvalInfo &Info, QualType T,
+                                UnaryExprOrTypeTrait ExprKind) {
   // C++ [expr.alignof]p3:
   //     When alignof is applied to a reference type, the result is the
   //     alignment of the referenced type.
   if (const ReferenceType *Ref = T->getAs<ReferenceType>())
     T = Ref->getPointeeType();
 
-  // __alignof is defined to return the preferred alignment.
   if (T.getQualifiers().hasUnaligned())
     return CharUnits::One();
-  return Info.Ctx.toCharUnitsFromBits(
-    Info.Ctx.getPreferredTypeAlign(T.getTypePtr()));
+
+  const bool AlignOfReturnsPreferred =
+      Info.Ctx.getLangOpts().getClangABICompat() <= LangOptions::ClangABI::Ver7;
+
+  // __alignof is defined to return the preferred alignment.
+  // Before 8, clang returned the preferred alignment for alignof and _Alignof
+  // as well.
+  if (ExprKind == UETT_PreferredAlignOf || AlignOfReturnsPreferred)
+    return Info.Ctx.toCharUnitsFromBits(
+      Info.Ctx.getPreferredTypeAlign(T.getTypePtr()));
+  // alignof and _Alignof are defined to return the ABI alignment.
+  else if (ExprKind == UETT_AlignOf)
+    return Info.Ctx.getTypeAlignInChars(T.getTypePtr());
+  else
+    llvm_unreachable("GetAlignOfType on a non-alignment ExprKind");
 }
 
-static CharUnits GetAlignOfExpr(EvalInfo &Info, const Expr *E) {
+static CharUnits GetAlignOfExpr(EvalInfo &Info, const Expr *E,
+                                UnaryExprOrTypeTrait ExprKind) {
   E = E->IgnoreParens();
 
   // The kinds of expressions that we have special-case logic here for
@@ -5977,7 +6002,7 @@ static CharUnits GetAlignOfExpr(EvalInfo &Info, const Expr *E) {
     return Info.Ctx.getDeclAlign(ME->getMemberDecl(),
                                  /*RefAsPointee*/true);
 
-  return GetAlignOfType(Info, E->getType());
+  return GetAlignOfType(Info, E->getType(), ExprKind);
 }
 
 // To be clear: this happily visits unsupported builtins. Better name welcomed.
@@ -6038,8 +6063,8 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
           OffsetResult.Base.dyn_cast<const ValueDecl*>()) {
         BaseAlignment = Info.Ctx.getDeclAlign(VD);
       } else {
-        BaseAlignment =
-          GetAlignOfExpr(Info, OffsetResult.Base.get<const Expr*>());
+        BaseAlignment = GetAlignOfExpr(
+            Info, OffsetResult.Base.get<const Expr *>(), UETT_AlignOf);
       }
 
       if (BaseAlignment < Align) {
@@ -7330,6 +7355,8 @@ public:
   //                            Visitor Methods
   //===--------------------------------------------------------------------===//
 
+  bool VisitConstantExpr(const ConstantExpr *E);
+
   bool VisitIntegerLiteral(const IntegerLiteral *E) {
     return Success(E->getValue(), E);
   }
@@ -7629,6 +7656,9 @@ EvaluateBuiltinClassifyType(QualType T, const LangOptions &LangOpts) {
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
     case BuiltinType::Id:
 #include "clang/Basic/OpenCLImageTypes.def"
+#define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
+    case BuiltinType::Id:
+#include "clang/Basic/OpenCLExtensionTypes.def"
     case BuiltinType::OCLSampler:
     case BuiltinType::OCLEvent:
     case BuiltinType::OCLClkEvent:
@@ -8067,6 +8097,11 @@ static bool tryEvaluateBuiltinObjectSize(const Expr *E, unsigned Type,
   return true;
 }
 
+bool IntExprEvaluator::VisitConstantExpr(const ConstantExpr *E) {
+  llvm::SaveAndRestore<bool> InConstantContext(Info.InConstantContext, true);
+  return ExprEvaluatorBaseTy::VisitConstantExpr(E);
+}
+
 bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
   if (unsigned BuiltinOp = E->getBuiltinCallee())
     return VisitBuiltinCallExpr(E, BuiltinOp);
@@ -8112,6 +8147,12 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     llvm_unreachable("unexpected EvalMode");
   }
 
+  case Builtin::BI__builtin_os_log_format_buffer_size: {
+    analyze_os_log::OSLogBufferLayout Layout;
+    analyze_os_log::computeOSLogBufferLayout(Info.Ctx, E, Layout);
+    return Success(Layout.size().getQuantity(), E);
+  }
+
   case Builtin::BI__builtin_bswap16:
   case Builtin::BI__builtin_bswap32:
   case Builtin::BI__builtin_bswap64: {
@@ -8148,8 +8189,20 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     return Success(Val.countLeadingZeros(), E);
   }
 
-  case Builtin::BI__builtin_constant_p:
-    return Success(EvaluateBuiltinConstantP(Info.Ctx, E->getArg(0)), E);
+  case Builtin::BI__builtin_constant_p: {
+    auto Arg = E->getArg(0);
+    if (EvaluateBuiltinConstantP(Info.Ctx, Arg))
+      return Success(true, E);
+    auto ArgTy = Arg->IgnoreImplicit()->getType();
+    if (!Info.InConstantContext && !Arg->HasSideEffects(Info.Ctx) &&
+        !ArgTy->isAggregateType() && !ArgTy->isPointerType()) {
+      // We can delay calculation of __builtin_constant_p until after
+      // inlining. Note: This diagnostic won't be shown to the user.
+      Info.FFDiag(E, diag::note_invalid_subexpr_in_const_expr);
+      return false;
+    }
+    return Success(false, E);
+  }
 
   case Builtin::BI__builtin_ctz:
   case Builtin::BI__builtin_ctzl:
@@ -9358,11 +9411,14 @@ bool IntExprEvaluator::VisitBinaryOperator(const BinaryOperator *E) {
 bool IntExprEvaluator::VisitUnaryExprOrTypeTraitExpr(
                                     const UnaryExprOrTypeTraitExpr *E) {
   switch(E->getKind()) {
+  case UETT_PreferredAlignOf:
   case UETT_AlignOf: {
     if (E->isArgumentType())
-      return Success(GetAlignOfType(Info, E->getArgumentType()), E);
+      return Success(GetAlignOfType(Info, E->getArgumentType(), E->getKind()),
+                     E);
     else
-      return Success(GetAlignOfExpr(Info, E->getArgumentExpr()), E);
+      return Success(GetAlignOfExpr(Info, E->getArgumentExpr(), E->getKind()),
+                     E);
   }
 
   case UETT_VecStep: {
@@ -9551,8 +9607,7 @@ bool IntExprEvaluator::VisitCastExpr(const CastExpr *E) {
   case CK_IntegralComplexCast:
   case CK_IntegralComplexToFloatingComplex:
   case CK_BuiltinFnToFnPtr:
-  case CK_ZeroToOCLEvent:
-  case CK_ZeroToOCLQueue:
+  case CK_ZeroToOCLOpaqueType:
   case CK_NonAtomicToAtomic:
   case CK_AddressSpaceConversion:
   case CK_IntToOCLSampler:
@@ -9589,6 +9644,14 @@ bool IntExprEvaluator::VisitCastExpr(const CastExpr *E) {
     if (BoolResult && E->getCastKind() == CK_BooleanToSignedIntegral)
       IntResult = (uint64_t)-1;
     return Success(IntResult, E);
+  }
+
+  case CK_FixedPointToBoolean: {
+    // Unsigned padding does not affect this.
+    APValue Val;
+    if (!Evaluate(Val, Info, SubExpr))
+      return false;
+    return Success(Val.getInt().getBoolValue(), E);
   }
 
   case CK_IntegralCast: {
@@ -10086,12 +10149,12 @@ bool ComplexExprEvaluator::VisitCastExpr(const CastExpr *E) {
   case CK_ARCExtendBlockObject:
   case CK_CopyAndAutoreleaseBlockObject:
   case CK_BuiltinFnToFnPtr:
-  case CK_ZeroToOCLEvent:
-  case CK_ZeroToOCLQueue:
+  case CK_ZeroToOCLOpaqueType:
   case CK_NonAtomicToAtomic:
   case CK_AddressSpaceConversion:
   case CK_IntToOCLSampler:
   case CK_FixedPointCast:
+  case CK_FixedPointToBoolean:
     llvm_unreachable("invalid cast kind for complex value");
 
   case CK_LValueToRValue:
@@ -10709,6 +10772,35 @@ static bool FastEvaluateAsRValue(const Expr *Exp, Expr::EvalResult &Result,
   return false;
 }
 
+static bool hasUnacceptableSideEffect(Expr::EvalStatus &Result,
+                                      Expr::SideEffectsKind SEK) {
+  return (SEK < Expr::SE_AllowSideEffects && Result.HasSideEffects) ||
+         (SEK < Expr::SE_AllowUndefinedBehavior && Result.HasUndefinedBehavior);
+}
+
+static bool EvaluateAsRValue(const Expr *E, Expr::EvalResult &Result,
+                             const ASTContext &Ctx, EvalInfo &Info) {
+  bool IsConst;
+  if (FastEvaluateAsRValue(E, Result, Ctx, IsConst))
+    return IsConst;
+
+  return EvaluateAsRValue(Info, E, Result.Val);
+}
+
+static bool EvaluateAsInt(const Expr *E, Expr::EvalResult &ExprResult,
+                          const ASTContext &Ctx,
+                          Expr::SideEffectsKind AllowSideEffects,
+                          EvalInfo &Info) {
+  if (!E->getType()->isIntegralOrEnumerationType())
+    return false;
+
+  if (!::EvaluateAsRValue(E, ExprResult, Ctx, Info) ||
+      !ExprResult.Val.isInt() ||
+      hasUnacceptableSideEffect(ExprResult, AllowSideEffects))
+    return false;
+
+  return true;
+}
 
 /// EvaluateAsRValue - Return true if this is a constant which we can fold using
 /// any crazy technique (that has nothing to do with language standards) that
@@ -10716,12 +10808,8 @@ static bool FastEvaluateAsRValue(const Expr *Exp, Expr::EvalResult &Result,
 /// in Result. If this expression is a glvalue, an lvalue-to-rvalue conversion
 /// will be applied to the result.
 bool Expr::EvaluateAsRValue(EvalResult &Result, const ASTContext &Ctx) const {
-  bool IsConst;
-  if (FastEvaluateAsRValue(this, Result, Ctx, IsConst))
-    return IsConst;
-
   EvalInfo Info(Ctx, Result, EvalInfo::EM_IgnoreSideEffects);
-  return ::EvaluateAsRValue(Info, this, Result.Val);
+  return ::EvaluateAsRValue(this, Result, Ctx, Info);
 }
 
 bool Expr::EvaluateAsBooleanCondition(bool &Result,
@@ -10731,24 +10819,10 @@ bool Expr::EvaluateAsBooleanCondition(bool &Result,
          HandleConversionToBool(Scratch.Val, Result);
 }
 
-static bool hasUnacceptableSideEffect(Expr::EvalStatus &Result,
-                                      Expr::SideEffectsKind SEK) {
-  return (SEK < Expr::SE_AllowSideEffects && Result.HasSideEffects) ||
-         (SEK < Expr::SE_AllowUndefinedBehavior && Result.HasUndefinedBehavior);
-}
-
-bool Expr::EvaluateAsInt(APSInt &Result, const ASTContext &Ctx,
+bool Expr::EvaluateAsInt(EvalResult &Result, const ASTContext &Ctx,
                          SideEffectsKind AllowSideEffects) const {
-  if (!getType()->isIntegralOrEnumerationType())
-    return false;
-
-  EvalResult ExprResult;
-  if (!EvaluateAsRValue(ExprResult, Ctx) || !ExprResult.Val.isInt() ||
-      hasUnacceptableSideEffect(ExprResult, AllowSideEffects))
-    return false;
-
-  Result = ExprResult.Val.getInt();
-  return true;
+  EvalInfo Info(Ctx, Result, EvalInfo::EM_IgnoreSideEffects);
+  return ::EvaluateAsInt(this, Result, Ctx, AllowSideEffects, Info);
 }
 
 bool Expr::EvaluateAsFloat(APFloat &Result, const ASTContext &Ctx,
@@ -10841,22 +10915,40 @@ bool Expr::isEvaluatable(const ASTContext &Ctx, SideEffectsKind SEK) const {
 
 APSInt Expr::EvaluateKnownConstInt(const ASTContext &Ctx,
                     SmallVectorImpl<PartialDiagnosticAt> *Diag) const {
-  EvalResult EvalResult;
-  EvalResult.Diag = Diag;
-  bool Result = EvaluateAsRValue(EvalResult, Ctx);
+  EvalResult EVResult;
+  EVResult.Diag = Diag;
+  EvalInfo Info(Ctx, EVResult, EvalInfo::EM_IgnoreSideEffects);
+  Info.InConstantContext = true;
+
+  bool Result = ::EvaluateAsRValue(this, EVResult, Ctx, Info);
   (void)Result;
   assert(Result && "Could not evaluate expression");
-  assert(EvalResult.Val.isInt() && "Expression did not evaluate to integer");
+  assert(EVResult.Val.isInt() && "Expression did not evaluate to integer");
 
-  return EvalResult.Val.getInt();
+  return EVResult.Val.getInt();
+}
+
+APSInt Expr::EvaluateKnownConstIntCheckOverflow(
+    const ASTContext &Ctx, SmallVectorImpl<PartialDiagnosticAt> *Diag) const {
+  EvalResult EVResult;
+  EVResult.Diag = Diag;
+  EvalInfo Info(Ctx, EVResult, EvalInfo::EM_EvaluateForOverflow);
+  Info.InConstantContext = true;
+
+  bool Result = ::EvaluateAsRValue(Info, this, EVResult.Val);
+  (void)Result;
+  assert(Result && "Could not evaluate expression");
+  assert(EVResult.Val.isInt() && "Expression did not evaluate to integer");
+
+  return EVResult.Val.getInt();
 }
 
 void Expr::EvaluateForOverflow(const ASTContext &Ctx) const {
   bool IsConst;
-  EvalResult EvalResult;
-  if (!FastEvaluateAsRValue(this, EvalResult, Ctx, IsConst)) {
-    EvalInfo Info(Ctx, EvalResult, EvalInfo::EM_EvaluateForOverflow);
-    (void)::EvaluateAsRValue(Info, this, EvalResult.Val);
+  EvalResult EVResult;
+  if (!FastEvaluateAsRValue(this, EVResult, Ctx, IsConst)) {
+    EvalInfo Info(Ctx, EVResult, EvalInfo::EM_EvaluateForOverflow);
+    (void)::EvaluateAsRValue(Info, this, EVResult.Val);
   }
 }
 
@@ -10909,7 +11001,11 @@ static ICEDiag Worst(ICEDiag A, ICEDiag B) { return A.Kind >= B.Kind ? A : B; }
 
 static ICEDiag CheckEvalInICE(const Expr* E, const ASTContext &Ctx) {
   Expr::EvalResult EVResult;
-  if (!E->EvaluateAsRValue(EVResult, Ctx) || EVResult.HasSideEffects ||
+  Expr::EvalStatus Status;
+  EvalInfo Info(Ctx, Status, EvalInfo::EM_ConstantExpression);
+
+  Info.InConstantContext = true;
+  if (!::EvaluateAsRValue(E, EVResult, Ctx, Info) || EVResult.HasSideEffects ||
       !EVResult.Val.isInt())
     return ICEDiag(IK_NotICE, E->getBeginLoc());
 
@@ -11025,6 +11121,9 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
     return
       CheckICE(cast<SubstNonTypeTemplateParmExpr>(E)->getReplacement(), Ctx);
 
+  case Expr::ConstantExprClass:
+    return CheckICE(cast<ConstantExpr>(E)->getSubExpr(), Ctx);
+
   case Expr::ParenExprClass:
     return CheckICE(cast<ParenExpr>(E)->getSubExpr(), Ctx);
   case Expr::GenericSelectionExprClass:
@@ -11103,9 +11202,7 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
     case UO_Imag:
       return CheckICE(Exp->getSubExpr(), Ctx);
     }
-
-    // OffsetOf falls through here.
-    LLVM_FALLTHROUGH;
+    llvm_unreachable("invalid unary operator class");
   }
   case Expr::OffsetOfExprClass: {
     // Note that per C99, offsetof must be an ICE. And AFAIK, using
@@ -11209,7 +11306,7 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
       return Worst(LHSResult, RHSResult);
     }
     }
-    LLVM_FALLTHROUGH;
+    llvm_unreachable("invalid binary operator kind");
   }
   case Expr::ImplicitCastExprClass:
   case Expr::CStyleCastExprClass:
@@ -11346,12 +11443,20 @@ bool Expr::isIntegerConstantExpr(llvm::APSInt &Value, const ASTContext &Ctx,
 
   if (!isIntegerConstantExpr(Ctx, Loc))
     return false;
+
   // The only possible side-effects here are due to UB discovered in the
   // evaluation (for instance, INT_MAX + 1). In such a case, we are still
   // required to treat the expression as an ICE, so we produce the folded
   // value.
-  if (!EvaluateAsInt(Value, Ctx, SE_AllowSideEffects))
+  EvalResult ExprResult;
+  Expr::EvalStatus Status;
+  EvalInfo Info(Ctx, Status, EvalInfo::EM_IgnoreSideEffects);
+  Info.InConstantContext = true;
+
+  if (!::EvaluateAsInt(this, ExprResult, Ctx, SE_AllowSideEffects, Info))
     llvm_unreachable("ICE cannot be evaluated!");
+
+  Value = ExprResult.Val.getInt();
   return true;
 }
 
