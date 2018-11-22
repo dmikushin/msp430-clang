@@ -17,8 +17,9 @@
 #define LLVM_TOOLS_LLVM_MCA_LSUNIT_H
 
 #include "HardwareUnits/HardwareUnit.h"
-#include <set>
+#include "llvm/ADT/SmallSet.h"
 
+namespace llvm {
 namespace mca {
 
 class InstRef;
@@ -98,8 +99,8 @@ class LSUnit : public HardwareUnit {
   // If true, loads will never alias with stores. This is the default.
   bool NoAlias;
 
-  std::set<unsigned> LoadQueue;
-  std::set<unsigned> StoreQueue;
+  SmallSet<unsigned, 16> LoadQueue;
+  SmallSet<unsigned, 16> StoreQueue;
 
   void assignLQSlot(unsigned Index);
   void assignSQSlot(unsigned Index);
@@ -108,12 +109,12 @@ class LSUnit : public HardwareUnit {
   // An instruction that both 'mayStore' and 'HasUnmodeledSideEffects' is
   // conservatively treated as a store barrier. It forces older store to be
   // executed before newer stores are issued.
-  std::set<unsigned> StoreBarriers;
+  SmallSet<unsigned, 8> StoreBarriers;
 
   // An instruction that both 'MayLoad' and 'HasUnmodeledSideEffects' is
   // conservatively treated as a load barrier. It forces older loads to execute
   // before newer loads are issued.
-  std::set<unsigned> LoadBarriers;
+  SmallSet<unsigned, 8> LoadBarriers;
 
   bool isSQEmpty() const { return StoreQueue.empty(); }
   bool isLQEmpty() const { return LoadQueue.empty(); }
@@ -128,11 +129,7 @@ public:
   void dump() const;
 #endif
 
-  enum Status {
-    LSU_AVAILABLE = 0,
-    LSU_LQUEUE_FULL,
-    LSU_SQUEUE_FULL
-  };
+  enum Status { LSU_AVAILABLE = 0, LSU_LQUEUE_FULL, LSU_SQUEUE_FULL };
 
   // Returns LSU_AVAILABLE if there are enough load/store queue entries to serve
   // IR. It also returns LSU_AVAILABLE if IR is not a memory operation.
@@ -156,5 +153,6 @@ public:
 };
 
 } // namespace mca
+} // namespace llvm
 
 #endif
