@@ -28,6 +28,3 @@
 ; CHECK: jmp    foo             ; encoding: [A,0b001111AA]
 ; CHECK:                        ;   fixup A - offset: 0, value: foo, kind: fixup_10_pcrel
 ; RELOC: R_MSP430_10_PCREL foo 0x0
-
-.short  _ctype+2
-; RELOC: R_MSP430_16_BYTE _ctype 0x2

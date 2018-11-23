@@ -30,7 +30,9 @@
 
 #define DEBUG_TYPE "msp430-asm-parser"
 
-namespace llvm {
+using namespace llvm;
+
+namespace {
 
 /// Parses MSP430 assembly from a stream.
 class MSP430AsmParser : public MCTargetAsmParser {
@@ -245,6 +247,7 @@ public:
     }
   }
 };
+} // end anonymous namespace
 
 bool MSP430AsmParser::MatchAndEmitInstruction(SMLoc Loc, unsigned &Opcode,
                                               OperandVector &Operands,
@@ -286,7 +289,7 @@ static unsigned MatchRegisterAltName(StringRef Name);
 bool MSP430AsmParser::ParseRegister(unsigned &RegNo, SMLoc &StartLoc,
                                     SMLoc &EndLoc) {
   if (getLexer().getKind() == AsmToken::Identifier) {
-    StringRef Name = getLexer().getTok().getIdentifier().lower();
+    auto Name = getLexer().getTok().getIdentifier().lower();
     RegNo = MatchRegisterName(Name);
     if (RegNo == MSP430::NoRegister) {
       RegNo = MatchRegisterAltName(Name);
@@ -311,7 +314,7 @@ bool MSP430AsmParser::parseJccInstruction(ParseInstructionInfo &Info,
   if (!Name.startswith_lower("j"))
     return true;
 
-  StringRef CC = Name.drop_front().lower();
+  auto CC = Name.drop_front().lower();
   unsigned CondCode;
   if (CC == "ne" || CC == "nz")
     CondCode = MSP430CC::COND_NE;
@@ -575,5 +578,3 @@ unsigned MSP430AsmParser::validateTargetOperandClass(MCParsedAsmOperand &AsmOp,
 
   return Match_InvalidOperand;
 }
-
-} // end of namespace llvm
