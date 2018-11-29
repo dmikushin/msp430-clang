@@ -1,6 +1,7 @@
-CC=~/msp430-clang/build/bin/clang
-LD=~/msp430-clang/build/bin/ld.lld
-GDB=/opt/msp430/bin/msp430-elf-gdb
+CC=clang
+#LD=ld.lld
+LD=msp430-elf-ld
+GDB=msp430-elf-gdb
 
 run: test
 	$(GDB) -q -x run.gdb-script test
