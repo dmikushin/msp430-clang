@@ -233,11 +233,13 @@ MSP430_MCU_FEAT("msp430afe223", "16bit")
 MSP430_MCU_FEAT("msp430afe233", "16bit")
 MSP430_MCU_FEAT("msp430afe253", "16bit")
 
-// With 32 Bit Hardware Multiplier
+// With 32-bit Hardware Multiplier
 MSP430_MCU_FEAT("msp430f4783", "32bit")
 MSP430_MCU_FEAT("msp430f4793", "32bit")
 MSP430_MCU_FEAT("msp430f4784", "32bit")
 MSP430_MCU_FEAT("msp430f4794", "32bit")
+MSP430_MCU_FEAT("msp430fr5969", "f5series")
+MSP430_MCU_FEAT("msp430fr6989", "f5series")
 
 // Generic MSUs
 MSP430_MCU("msp430")
