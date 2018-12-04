@@ -329,6 +329,21 @@ class IIForm<bits<3> opcode, bit bw, SourceMode as, int size,
   let Inst{3-0}   = rs;
 }
 
+// POPX/PUSHX MSP430X Single Operand Instructions
+class CPUXMForm<bits<2> opcode, int size,
+             dag outs, dag ins, string asmstr, list<dag> pattern>
+  : MSP430Inst<outs, ins, size, asmstr> {
+  let Pattern = pattern;
+
+  bits<4> rs;
+  bits<4> imm;
+
+  let Inst{15-10} = 0b000101;
+  let Inst{9-8}   = opcode;
+  let Inst{7-4}   = imm;
+  let Inst{3-0}   = rs;
+}
+
 // 8 bit IIForm instructions
 class IIForm8<bits<3> opcode, SourceMode src, int size,
               dag outs, dag ins, string asmstr, list<dag> pattern>
@@ -380,9 +395,18 @@ class IIForm16<bits<3> opcode, SourceMode src, int size,
                dag outs, dag ins, string asmstr, list<dag> pattern>
   : IIForm<opcode, 0, src, size, outs, ins, asmstr, pattern>;
 
+// 16 bit IIForm instructions
+class CPUXMForm16<bits<2> opcode, int size,
+                  dag outs, dag ins, string asmstr, list<dag> pattern>
+  : CPUXMForm<opcode, size, outs, ins, asmstr, pattern>;
+
 class II16r<bits<3> opcode,
             dag outs, dag ins, string asmstr, list<dag> pattern>
   : IIForm16<opcode, SrcReg, 2, outs, ins, asmstr, pattern>;
+
+class CPUXM16r<bits<2> opcode,
+               dag outs, dag ins, string asmstr, list<dag> pattern>
+  : CPUXMForm16<opcode, 2, outs, ins, asmstr, pattern>;
 
 class II16m<bits<3> opcode,
             dag outs, dag ins, string asmstr, list<dag> pattern>

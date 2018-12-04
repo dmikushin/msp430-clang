@@ -304,12 +304,17 @@ def POP16r   : IForm16<0b0100, DstReg, SrcPostInc, 2,
   let DecoderNamespace = "Delta";
   let rs = 1;
 }
+// Pop n (1 <= n <= 16) 16-bit registers from stack
+def POPM16r : CPUXM16r<0b11, (outs), (ins i16imm:$imm, GR16:$rs), "popm\t$imm, $rs", []>;
+
 
 let mayStore = 1 in
 def PUSH8r :  II8r<0b100, (outs), (ins GR8:$rs), "push.b\t$rs", []>;
 def PUSH16r : II16r<0b100, (outs), (ins GR16:$rs), "push\t$rs", []>;
 def PUSH16c : II16c<0b100, (outs), (ins cg16imm:$imm), "push\t$imm", []>;
 def PUSH16i : II16i<0b100, (outs), (ins i16imm:$imm), "push\t$imm", []>;
+// Push n (1 <= n <= 16) 16-bit registers to stack
+def PUSHM16r : CPUXM16r<0b01, (outs), (ins i16imm:$imm, GR16:$rs), "pushm\t$imm, $rs", []>;
 }
 
 //===----------------------------------------------------------------------===//
