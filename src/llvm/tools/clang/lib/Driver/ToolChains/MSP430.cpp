@@ -173,7 +173,7 @@ std::string MSP430ToolChain::computeSysRoot() const {
     StringRef TripleStr = GCCInstallation.getTriple().str();
     SysRootDir = LibDir.str() + "/../" + TripleStr.str();
   } else {
-    SysRootDir = getDriver().Dir + "/../" + getTriple().getTriple();
+    SysRootDir = getDriver().Dir + "/../msp430-elf";
   }
   if (!llvm::sys::fs::exists(SysRootDir))
     return std::string();
