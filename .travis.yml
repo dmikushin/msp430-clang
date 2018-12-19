@@ -1,0 +1,23 @@
+dist: xenial
+sudo: true
+language: cpp
+
+git:
+  depth: 5
+
+addons:
+  apt:
+    packages:
+     - ninja-build
+
+script:
+    - mkdir build
+    - cd build
+    - cmake ../src/llvm -GNinja -DCMAKE_CXX_COMPILER=clang++
+      -DCMAKE_BUILD_TYPE=Debug -DLLVM_TARGETS_TO_BUILD=MSP430
+      -DBUILD_SHARED_LIBS=1 -DLLVM_USE_LINKER=gold
+
+    - ninja llc llvm-mc llvm-objdump llvm-readobj
+    - ninja count FileCheck llvm-config not
+    - bin/llvm-lit -v ../src/llvm/test/CodeGen/MSP430/
+    - bin/llvm-lit -v ../src/llvm/test/MC/MSP430/
