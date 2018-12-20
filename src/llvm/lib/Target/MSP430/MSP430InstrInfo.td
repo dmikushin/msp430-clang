@@ -808,7 +808,7 @@ def BIT8mc  : I8mc<0b1011,
                    [(MSP430cmp (and_su (load addr:$dst), (i8 cg8imm:$imm)), 0),
                     (implicit SR)]>;
 def BIT16mc : I16mc<0b1011,
-                    (outs), (ins memsrc:$dst, i16imm:$imm),
+                    (outs), (ins memdst:$dst, cg16imm:$imm),
                     "bit\t$imm, $dst",
                     [(MSP430cmp (and_su (load addr:$dst), (i16 cg16imm:$imm)), 0),
                      (implicit SR)]>;
