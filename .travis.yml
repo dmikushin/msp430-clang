@@ -21,3 +21,4 @@ script:
     - ninja count FileCheck llvm-config not
     - bin/llvm-lit -v ../src/llvm/test/CodeGen/MSP430/
     - bin/llvm-lit -v ../src/llvm/test/MC/MSP430/
+    - bin/llvm-lit -v ../src/llvm/test/MC/Disassembler/MSP430/
