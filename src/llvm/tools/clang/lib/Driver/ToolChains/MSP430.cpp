@@ -214,7 +214,7 @@ void msp430::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   CmdArgs.push_back("--start-group");
   CmdArgs.push_back(Args.MakeArgString(getHWMultLib(Args)));
-  CmdArgs.push_back("-lgcc");
+  CmdArgs.push_back("-lclang_rt.builtins-msp430");
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
     CmdArgs.push_back("-lc");
     CmdArgs.push_back("-lcrt");
